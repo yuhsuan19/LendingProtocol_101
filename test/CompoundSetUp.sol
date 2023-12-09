@@ -19,16 +19,16 @@ contract CompoundSetUp {
     ComptrollerG7 comptrollerProxy;
     CErc20Delegator cTokenA;
     CErc20Delegator cTokenB;
-    CErc20Delegate impl;
-    WhitePaperInterestRateModel model;
+    CErc20Delegate cTokenImp;
+    WhitePaperInterestRateModel intresetModel;
     Unitroller unitroller;
     SimplePriceOracle oracle;
 
     function deployCompound() internal {
         tokenA = new TokenA();
         tokenB = new TokenB();
-        impl = new CErc20Delegate();
-        model = new WhitePaperInterestRateModel(0, 0);
+        cTokenImp = new CErc20Delegate();
+        intresetModel = new WhitePaperInterestRateModel(0, 0);
         comptroller = new ComptrollerG7();
         unitroller = new Unitroller();
         oracle = new SimplePriceOracle();
@@ -40,39 +40,42 @@ contract CompoundSetUp {
         comptrollerProxy._setPriceOracle(oracle);
 
         setUpTokenA();
-        setUpTokenA();
+        setUpTokenB();
     }
 
     function setUpTokenA() internal {
         cTokenA = new CErc20Delegator(
             address(tokenA),
             comptrollerProxy,
-            model,
+            intresetModel,
             1e18,
             "CTokenA",
             "cTA",
             18,
             payable(msg.sender),
-            address(impl),
+            address(cTokenImp),
             new bytes(0)
         );
         comptrollerProxy._supportMarket(CToken(address(cTokenA)));
+        oracle.setUnderlyingPrice(CToken(address(cTokenA)), 1e18);
     }
 
     function setUpTokenB() internal {
         cTokenB = new CErc20Delegator(
             address(tokenB),
             comptrollerProxy,
-            model,
+            intresetModel,
             1e18,
             "CTokenB",
             "cTB",
             18,
             payable(msg.sender),
-            address(impl),
+            address(cTokenImp),
             new bytes(0)
         );
         comptrollerProxy._supportMarket(CToken(address(cTokenB)));
+        oracle.setUnderlyingPrice(CToken(address(cTokenB)), 1e20);
+        comptrollerProxy._setCollateralFactor(CToken(address(cTokenB)), 5e17);
     }
 }
 
