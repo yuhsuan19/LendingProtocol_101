@@ -59,31 +59,7 @@ contract BorrowAndLiquidationTest is Test, CompoundSetUp {
         comptrollerProxy._setCollateralFactor(CToken(address(cTokenB)), 1e17); // 50% -> 10%
         vm.stopPrank();
 
-        vm.startPrank(user2);
-        tokenA.freeMint(50 * mintAmount);
-        tokenA.approve(address(cTokenA), 50 * mintAmount);
-
-        (,, uint256 shortfall) = comptrollerProxy.getAccountLiquidity(user1);
-        assertGt(shortfall, 0);
-
-        uint256 borrowBalance = cTokenA.borrowBalanceStored(user1);
-        cTokenA.liquidateBorrow(user1, (borrowBalance / 2), cTokenB);
-        assertEq(
-            tokenA.balanceOf(user2), 
-            (50 * mintAmount) - (borrowBalance / 2)
-        );
-
-        (, uint256 seizeTokens) = comptrollerProxy.liquidateCalculateSeizeTokens(
-            address(cTokenA), 
-            address(cTokenB), 
-            (borrowBalance / 2)
-        );
-        assertEq(
-            cTokenB.balanceOf(user2), 
-            seizeTokens * (1e18 - cTokenA.protocolSeizeShareMantissa()) / 1e18
-        );
-        vm.stopPrank();
-
+        _user2Liquidation();
     }
     
     function test_PriceChangeAndLiquidation() public {
@@ -93,7 +69,26 @@ contract BorrowAndLiquidationTest is Test, CompoundSetUp {
         oracle.setUnderlyingPrice(CToken(address(cTokenB)), 9e19); // 100 -> 90
         vm.stopPrank();
 
-        vm.startPrank(user2);
+        _user2Liquidation();
+    }
+
+    function _user1Borrow() private {
+        vm.startPrank(user1);
+        tokenB.freeMint(mintAmount); 
+        tokenB.approve(address(cTokenB), mintAmount);
+        cTokenB.mint(mintAmount);
+        assertEq(cTokenB.balanceOf(user1), mintAmount);
+
+        address[] memory cTokens = new address[](1);
+        cTokens[0] = address(cTokenB);
+        comptrollerProxy.enterMarkets(cTokens);
+        cTokenA.borrow(50 * mintAmount); // 50 = price(100) * collateralFactor(0.5)
+        assertEq(tokenA.balanceOf(user1), 50 * mintAmount);
+        vm.stopPrank();
+    }
+
+    function _user2Liquidation() private {
+               vm.startPrank(user2);
         tokenA.freeMint(50 * mintAmount);
         tokenA.approve(address(cTokenA), 50 * mintAmount);
 
@@ -116,21 +111,6 @@ contract BorrowAndLiquidationTest is Test, CompoundSetUp {
             cTokenB.balanceOf(user2), 
             seizeTokens * (1e18 - cTokenA.protocolSeizeShareMantissa()) / 1e18
         );
-        vm.stopPrank();
-    }
-
-    function _user1Borrow() private {
-        vm.startPrank(user1);
-        tokenB.freeMint(mintAmount); 
-        tokenB.approve(address(cTokenB), mintAmount);
-        cTokenB.mint(mintAmount);
-        assertEq(cTokenB.balanceOf(user1), mintAmount);
-
-        address[] memory cTokens = new address[](1);
-        cTokens[0] = address(cTokenB);
-        comptrollerProxy.enterMarkets(cTokens);
-        cTokenA.borrow(50 * mintAmount); // 50 = price(100) * collateralFactor(0.5)
-        assertEq(tokenA.balanceOf(user1), 50 * mintAmount);
         vm.stopPrank();
     }
 }
