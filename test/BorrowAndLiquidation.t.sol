@@ -52,18 +52,18 @@ contract BorrowAndLiquidationTest is Test, CompoundSetUp {
         assertEq(tokenA.balanceOf(user1), 0);
     }
 
-    function test_CollateralFactorAndLiquidation() public {
+    function test_CollateralFactorChangeAndLiquidation() public {
         _user1Borrow();
 
         vm.startPrank(admin);
-        comptrollerProxy._setCollateralFactor(CToken(address(cTokenB)), 1e17);
+        comptrollerProxy._setCollateralFactor(CToken(address(cTokenB)), 1e17); // 50% -> 10%
         vm.stopPrank();
 
         vm.startPrank(user2);
         tokenA.freeMint(50 * mintAmount);
         tokenA.approve(address(cTokenA), 50 * mintAmount);
 
-         (,, uint256 shortfall) = comptrollerProxy.getAccountLiquidity(user1);
+        (,, uint256 shortfall) = comptrollerProxy.getAccountLiquidity(user1);
         assertGt(shortfall, 0);
 
         uint256 borrowBalance = cTokenA.borrowBalanceStored(user1);
@@ -86,9 +86,38 @@ contract BorrowAndLiquidationTest is Test, CompoundSetUp {
 
     }
     
-    // function test_PriceChangeAndLiquidation() public {
+    function test_PriceChangeAndLiquidation() public {
+        _user1Borrow();
 
-    // }
+        vm.startPrank(admin);
+        oracle.setUnderlyingPrice(CToken(address(cTokenB)), 9e19); // 100 -> 90
+        vm.stopPrank();
+
+        vm.startPrank(user2);
+        tokenA.freeMint(50 * mintAmount);
+        tokenA.approve(address(cTokenA), 50 * mintAmount);
+
+        (,, uint256 shortfall) = comptrollerProxy.getAccountLiquidity(user1);
+        assertGt(shortfall, 0);
+
+        uint256 borrowBalance = cTokenA.borrowBalanceStored(user1);
+        cTokenA.liquidateBorrow(user1, (borrowBalance / 2), cTokenB);
+        assertEq(
+             tokenA.balanceOf(user2), 
+             (50 * mintAmount) - (borrowBalance / 2)
+        );
+
+        (, uint256 seizeTokens) = comptrollerProxy.liquidateCalculateSeizeTokens(
+            address(cTokenA), 
+            address(cTokenB), 
+            (borrowBalance / 2)
+        );
+        assertEq(
+            cTokenB.balanceOf(user2), 
+            seizeTokens * (1e18 - cTokenA.protocolSeizeShareMantissa()) / 1e18
+        );
+        vm.stopPrank();
+    }
 
     function _user1Borrow() private {
         vm.startPrank(user1);
