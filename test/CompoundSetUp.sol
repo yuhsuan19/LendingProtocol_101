@@ -38,6 +38,8 @@ contract CompoundSetUp {
         
         comptrollerProxy = ComptrollerG7(address(unitroller));
         comptrollerProxy._setPriceOracle(oracle);
+        comptrollerProxy._setCloseFactor(5e17);
+        comptrollerProxy._setLiquidationIncentive(108 * 1e16);
 
         setUpTokenA();
         setUpTokenB();
