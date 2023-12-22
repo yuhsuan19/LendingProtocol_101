@@ -41,7 +41,7 @@ contract DeployCompound is Script {
             address(testERC20),
             proxyComptroller,
             interestModel,
-            1 * 1e18, // erc20 decimal - cToken decimal, 10 ** (18 - 18)
+            1 * 1e18,
             "cTestToken",
             "cTT",
             18,
